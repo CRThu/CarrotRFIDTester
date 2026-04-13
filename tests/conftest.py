@@ -1,10 +1,10 @@
 import pytest
-from hardware.transport import SerialTransport
-from drivers.pn532 import PN532_HSU
+from hardware.serial_transport import SerialTransport
+from drivers.pn532_hsu import PN532_HSU
 
 @pytest.fixture(scope="session")
 def pn532_device():
-    # 这里可以根据命令行参数灵活切换串口号
+    # 可以在此处通过 request.config.getoption 获取命令行参数来切换端口
     transport = SerialTransport(port="COM20")
     device = PN532_HSU(transport)
     
