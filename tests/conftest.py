@@ -3,14 +3,12 @@ from hardware.serial_transport import SerialTransport
 from drivers.pn532_hsu import PN532_HSU
 
 @pytest.fixture(scope="session")
-def pn532_device():
-    # 可以在此处通过 request.config.getoption 获取命令行参数来切换端口
+def card_reader():
+    """提供一个初始化好的通用 CardReader 实例"""
     transport = SerialTransport(port="COM20")
-    device = PN532_HSU(transport)
+    reader = PN532_HSU(transport)
+    reader.connect()
     
-    device.wakeup()
-    device.sam_config()
+    yield reader
     
-    yield device
-    
-    device.transport.close()
+    reader.disconnect()

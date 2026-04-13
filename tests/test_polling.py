@@ -1,17 +1,14 @@
 import pytest
 from loguru import logger
 
-def test_poll_card(pn532_device):
+def test_poll_card(card_reader):
     """测试寻卡功能"""
-    res = pn532_device.poll_card()
+    tag_info = card_reader.poll_tag()
     
-    # 指令回复: 0xD5, 0x4B (InListPassiveTarget response)
-    # res[1] 是卡片数量
-    assert res and len(res) > 1 and res[1] > 0, "未发现卡片"
+    assert tag_info is not None, "未发现卡片"
     
-    sak = res[5]
-    uid_len = res[6]
-    uid = res[7 : 7 + uid_len]
+    sak = tag_info["sak"]
+    uid = tag_info["uid"]
     
     card_type = "未知类型"
     if sak == 0x00:

@@ -1,7 +1,7 @@
 import pytest
 
-def test_firmware_version(pn532_device):
+def test_firmware_version(card_reader):
     """测试读取固件版本"""
-    res = pn532_device.get_firmware()
-    assert res is not None, "无法读取固件版本"
-    print(f"固件版本: {res.hex(' ').upper()}")
+    version = card_reader.get_version()
+    assert version is not None, "无法读取固件版本"
+    print(f"固件版本: {version}")
