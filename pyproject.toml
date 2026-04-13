@@ -1,0 +1,26 @@
+[project]
+name = "fm552-test-suite"
+version = "0.0.5"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "bump-my-version>=1.3.0",
+    "loguru>=0.7.3",
+    "pyserial>=3.5",
+    "pytest>=9.0.3",
+]
+
+[tool.bumpversion]
+current_version = "0.0.5"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+
+# 驱动文件版本号
+# [[tool.bumpversion.files]]
+# filename = "src/driver.py"
