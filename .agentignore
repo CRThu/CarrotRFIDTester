@@ -1,3 +1,11 @@
+# python
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+.pytest_cache/
+.venv
+
 # 文档
 ds/
-
+ai.md
