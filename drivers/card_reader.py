@@ -9,13 +9,18 @@ class CardReader(ABC):
         pass
 
     @abstractmethod
-    def get_version(self) -> str:
+    def get_version(self) -> bytes:
         """获取设备版本信息"""
         pass
 
     @abstractmethod
     def poll_tag(self) -> dict:
         """寻卡，返回卡片信息，未发现返回 None"""
+        pass
+
+    @abstractmethod
+    def raw_command(self, data: bytes) -> bytes:
+        """发送自定义指令，返回应答数据"""
         pass
 
     @abstractmethod
