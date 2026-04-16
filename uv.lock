@@ -54,7 +54,7 @@ wheels = [
 
 [[package]]
 name = "carrotrfidtester"
-version = "0.0.15"
+version = "0.0.22"
 source = { editable = "." }
 dependencies = [
     { name = "bump-my-version" },
