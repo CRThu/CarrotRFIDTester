@@ -1,7 +1,7 @@
 [project]
-name = "fm552-test-suite"
+name = "CarrotRFIDTester"
 version = "0.0.13"
-description = "Add your description here"
+description = "A RFID/NFC autpmation testing framework for cards and readers."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
@@ -10,6 +10,19 @@ dependencies = [
     "pyserial>=3.5",
     "pytest>=9.0.3",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+crft = "crft.main:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.uv]
+package = true
 
 [tool.bumpversion]
 current_version = "0.0.13"

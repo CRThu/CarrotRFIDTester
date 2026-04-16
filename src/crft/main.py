@@ -1,5 +1,5 @@
 def main():
-    print("Hello from fm552!")
+    print("Hello from CarrotRFIDTester!")
 
 
 if __name__ == "__main__":

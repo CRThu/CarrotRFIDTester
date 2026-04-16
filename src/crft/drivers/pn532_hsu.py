@@ -1,6 +1,6 @@
 import time
 from loguru import logger
-from drivers.card_reader import CardReader
+from crft.drivers.card_reader import CardReader
 
 class PN532_HSU(CardReader):
     """PN532 HSU 协议驱动实现"""

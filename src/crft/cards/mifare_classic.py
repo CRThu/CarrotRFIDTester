@@ -1,4 +1,4 @@
-from cards.base_card import BaseCard
+from crft.cards.base_card import BaseCard
 
 class MifareClassicCard(BaseCard):
     """MIFARE Classic 标准认证实现"""

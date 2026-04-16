@@ -1,6 +1,6 @@
 import serial
 from loguru import logger
-from hardware.base import Transport
+from crft.hardware.base import Transport
 
 class SerialTransport(Transport):
     """基于串口的传输实现"""

@@ -1,6 +1,6 @@
 import pytest
-from hardware.serial_transport import SerialTransport
-from drivers.pn532_hsu import PN532_HSU
+from crft.hardware.serial_transport import SerialTransport
+from crft.drivers.pn532_hsu import PN532_HSU
 
 @pytest.fixture(scope="session")
 def card_reader():

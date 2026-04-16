@@ -1,5 +1,5 @@
 import pytest
-from cards.mifare_classic import MifareClassicCard
+from crft.cards.mifare_classic import MifareClassicCard
 
 def test_mifare_authenticate(card_reader):
     """测试 MIFARE Classic 认证流程"""
