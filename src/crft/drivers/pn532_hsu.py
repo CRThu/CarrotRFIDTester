@@ -70,8 +70,26 @@ class PN532_HSU(CardReader):
         return None
 
     def raw_command(self, data: bytes) -> bytes:
+        """发送原始指令并获取响应帧数据部分"""
         self._send_frame(data)
-        return self._read_frame()
+        res = self._read_frame()
+        if res is None:
+            logger.error(f"PN532 指令 0x{data[0]:02X} 执行失败: 无响应")
+        return res
+
+    def transceive(self, data: bytes) -> bytes:
+        """封装 PN532 的 InDataExchange 指令发送给卡片"""
+        # 0x40 (InDataExchange), 0x01 (Target 1)
+        full_cmd = b'\x40\x01' + data
+        res = self.raw_command(full_cmd)
+        
+        # 响应格式: 0x41 (Response), Status, [Data]
+        if res and len(res) >= 2 and res[0] == 0x41:
+            if res[1] == 0x00:
+                return res[2:]
+            else:
+                logger.warning(f"指令交换返回错误状态: 0x{res[1]:02X}")
+        return None
 
     def disconnect(self):
         try:

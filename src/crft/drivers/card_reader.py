@@ -37,6 +37,14 @@ class CardReader(ABC):
         pass
 
     @abstractmethod
+    def transceive(self, data: bytes) -> bytes:
+        """
+        与卡片进行数据交换（自动处理读卡器的封装格式，如 PN532 的 InDataExchange）。
+        返回卡片返回的原始数据块，如果失败则返回 None。
+        """
+        pass
+
+    @abstractmethod
     def disconnect(self):
         """
         释放读卡器资源并断开连接。

@@ -23,15 +23,16 @@
 *   **核心类**: `BaseCard`, `MifareClassicCard`。
 *   **逻辑**: 
     *   处理寻卡、防碰撞、选择卡片等 ISO14443A 基础流程。
-    *   实现完整的 Mifare Classic 指令集（`read_block`, `write_block`, `increment` 等），并自动处理 PN532 的 `InDataExchange` 指令封装。
-    *   **认证逻辑**: `authenticate` 方法支持硬件认证（PN532 内置）与软件认证切换。
-    *   **协议安全**: 在卡片层实现了 Mifare Classic 的三轮认证（3-pass authentication）计算逻辑，调用加密层的原子函数（如位移、滤波）完成安全交互，保持加密算法层的抽象性。
+    *   实现完整的 Mifare Classic 指令集（`read_block`, `write_block`, `increment` 等），通过调用读卡器层的 `transceive` 进行交互，实现卡片逻辑与读卡器硬件指令（如 `InDataExchange`）的解耦。
+    *   **认证逻辑**: `authenticate` 方法使用 PN532 内置的硬件认证功能。
+    *   **协议安全**: 目前依赖硬件层处理 Mifare Classic 的三轮认证，加密算法层主要提供离线的算法验证支持。
 
 ### 第四层：加密算法层 (Crypto Layer)
 *   **目录**: `src/crft/crypto/`
 *   **职责**: 提供卡片交互所需的底层加密/解密原子操作。
-*   **核心模块**: `AES`, `DES`, `MifareCrypto1` (Crypto1 算法的位级实现)。
-*   **设计原则**: 仅暴露标准的加密/解密接口及算法原子组件，不包含具体的业务协议逻辑（如三轮认证流程）。
+*   **核心模块**: `AES`, `DES`, `MifareCrypto1` (有状态的流加密引擎)。
+*   **设计原则**: 仅暴露标准的 `initialize`, `encrypt`, `decrypt` 三个公开方法。加密引擎内部维护私有状态机 `_state`，其生命周期由 `initialize` 严格控制。
+*   **状态同步**: `MifareCrypto1.State` 作为状态控制器，提供了 `_shift` (受保护的单步移位) 等原子操作，支持卡片层进行精细的协议编排（如三轮认证）。Mifare 特有的算法（如 `prng_successor`）在此层统一实现，确保算法逻辑与协议逻辑的严格解耦。
 
 ## 3. 开发与测试指南
 

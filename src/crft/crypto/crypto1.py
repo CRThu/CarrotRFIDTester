@@ -3,12 +3,28 @@ from crft.crypto.base_crypto import BaseCrypto
 class MifareCrypto1(BaseCrypto):
     """
     Mifare Classic Crypto1 算法加解密实现类
-    继承自 BaseCrypto
+    有状态的流加密引擎
     """
+    
+    def __init__(self):
+        self._state = None
     
     # LFSR 奇数和偶数部分的反馈多项式掩码
     LF_POLY_ODD = 0x29CE5C
     LF_POLY_EVEN = 0x870804
+
+    @staticmethod
+    def prng_successor(x_int: int, steps: int) -> int:
+        """
+        Mifare PRNG 后继函数 (算法归口)
+        :param x_int: 当前 PRNG 值
+        :param steps: 步进次数
+        :return: 更新后的 PRNG 值
+        """
+        x = x_int
+        for _ in range(steps):
+            x = (x >> 1) | (((x >> 0) ^ (x >> 2) ^ (x >> 3) ^ (x >> 5)) & 1) << 31
+        return x & 0xFFFFFFFF
 
     @staticmethod
     def _bit(x: int, n: int) -> int:
@@ -38,118 +54,107 @@ class MifareCrypto1(BaseCrypto):
 
     class State:
         """Crypto1 内部 LFSR 状态，模拟底层的硬件移位寄存器"""
-        def __init__(self, key_int: int):
-            self.odd = 0
-            self.even = 0
-            # 将 48 位 Mifare 密钥位按照大端与反转顺序交叉分离进入奇/偶寄存器中
-            # i 从 47 递减到 1 (步长为 2)
-            for i in range(47, -1, -2):
-                self.odd = (self.odd << 1) | MifareCrypto1._bit(key_int, (i - 1) ^ 7)
-                self.even = (self.even << 1) | MifareCrypto1._bit(key_int, i ^ 7)
+        def __init__(self, key: bytes = None, odd: int = None, even: int = None):
+            """
+            初始化 Crypto1 状态
+            :param key: 6 字节 Mifare 密钥 (可选)
+            :param odd: 寄存器奇数部分状态 (可选)
+            :param even: 寄存器偶数部分状态 (可选)
+            """
+            self.odd = odd if odd is not None else 0
+            self.even = even if even is not None else 0
+            
+            if key is not None:
+                # 将 6 bytes 密钥转为整数 (大端序)
+                key_int = int.from_bytes(key, byteorder='big')
+                self.odd = 0
+                self.even = 0
+                # 将 48 位 Mifare 密钥位按照大端与反转顺序交叉分离进入奇/偶寄存器中
+                # i 从 47 递减到 1 (步长为 2)
+                for i in range(47, -1, -2):
+                    self.odd = (self.odd << 1) | MifareCrypto1._bit(key_int, (i - 1) ^ 7)
+                    self.even = (self.even << 1) | MifareCrypto1._bit(key_int, i ^ 7)
 
-    def encrypt(self, indata: bytes, key: bytes) -> bytes:
+        def get_filter_bit(self) -> int:
+            """获取当前状态下的滤波输出位 (Keystream bit)"""
+            return MifareCrypto1._filter(self.odd)
+
+        def _shift(self, bit: int, feedback: bool = True) -> int:
+            """
+            执行单次移位与混淆 (原子操作)
+            :param bit: 输入位 (用于参与反馈或作为输入)
+            :param feedback: 是否启用 LFSR 反馈逻辑
+            :return: 当前生成的密钥流 bit (ks_bit)
+            """
+            # 基础反馈来自于多项式掩码与当前状态的奇偶校验
+            feedin = (MifareCrypto1.LF_POLY_ODD & self.odd) ^ (MifareCrypto1.LF_POLY_EVEN & self.even)
+            # 如果开启反馈（即加密/同步模式），则将输入位混入反馈回路
+            if feedback:
+                feedin ^= bit
+            
+            # 推入反馈位并确保状态字截断在 32 位界限以内
+            new_even = ((self.even << 1) | MifareCrypto1._parity(feedin)) & 0xFFFFFFFF
+            self.odd, self.even = new_even, self.odd
+            
+            return ks_bit
+
+    def initialize(self, key: bytes):
+        """
+        重新实例化加密状态
+        :param key: 6 字节 Mifare 密钥
+        """
+        self._state = self.State(key=key)
+
+    def encrypt(self, indata: bytes, feedback: bool = True) -> bytes:
         """
         加密数据
         :param indata: 输入原始数据 (bytes)
-        :param key: 密钥 (bytes) - Mifare Key 长度为 6 bytes (48 bits)
+        :param feedback: 是否启用反馈 (认证 Token 计算时通常为 False)
         :return: 加密后的字节流 (bytes)
         """
-        # 将 6 bytes 密钥转为整数 (大端序)
-        key_int = int.from_bytes(key, byteorder='big')
-        state = self.State(key_int)
-        
+        if self._state is None:
+            raise RuntimeError("MifareCrypto1 state not initialized. Call initialize() first.")
+            
         out = bytearray()
         for p_byte in indata:
             c_byte = 0
             # 在 Mifare 协议中，数据是逐 bit 处理的
             for i in range(8):
-                # 1. 滤波函数生成此时的密钥流 bit (Keystream bit)
-                ks_bit = self._filter(state.odd)
-                
-                # 2. 提取明文的当前位，并与流密钥异或得出密文位
+                # 1. 提取明文位并执行状态移位
                 p_bit = self._bit(p_byte, i)
+                ks_bit = self._state._shift(p_bit, feedback=feedback)
+                
+                # 2. 与流密钥异或得出密文位
                 c_bit = p_bit ^ ks_bit
                 c_byte |= (c_bit << i)
-                
-                # 3. LFSR 反馈状态更新：明文位参与反馈混淆 (LFSR 反馈多项式)
-                feedin = p_bit
-                feedin ^= (self.LF_POLY_ODD & state.odd)
-                feedin ^= (self.LF_POLY_EVEN & state.even)
-                
-                # 推入反馈位并确保状态字截断在 32 位界限以内，模拟 C 语言硬件环境的 uint32_t 溢出
-                state.even = ((state.even << 1) | self._parity(feedin)) & 0xFFFFFFFF
-                
-                # 奇数与偶数寄存器状态互换完成单 bit 移位操作
-                state.odd, state.even = state.even, state.odd
                 
             out.append(c_byte)
         return bytes(out)
 
-    def decrypt(self, indata: bytes, key: bytes) -> bytes:
+    def decrypt(self, indata: bytes, feedback: bool = True) -> bytes:
         """
         解密数据
         :param indata: 输入加密数据 (bytes)
-        :param key: 密钥 (bytes) - Mifare Key 长度为 6 bytes (48 bits)
+        :param feedback: 是否启用反馈 (解密通常需要反馈以保持同步)
         :return: 解密后的原始字节流 (bytes)
         """
-        key_int = int.from_bytes(key, byteorder='big')
-        state = self.State(key_int)
-        
+        if self._state is None:
+            raise RuntimeError("MifareCrypto1 state not initialized. Call initialize() first.")
+            
         out = bytearray()
         for c_byte in indata:
             p_byte = 0
             for i in range(8):
-                # 1. 滤波函数同样在相同的状态下生成同样的密钥流 bit
-                ks_bit = self._filter(state.odd)
+                # 1. 解密时先获取流密钥
+                ks_bit = self._state.get_filter_bit()
                 
-                # 2. 提取密文当前位，异或密钥得出明文位
+                # 2. 异或密文位得出明文位
                 c_bit = self._bit(c_byte, i)
                 p_bit = c_bit ^ ks_bit
                 p_byte |= (p_bit << i)
                 
-                # 3. LFSR 反馈状态更新：解密时因为已算出明文位，所以同样将"明文"混入反馈状态中，保持状态机同步
-                feedin = p_bit
-                feedin ^= (self.LF_POLY_ODD & state.odd)
-                feedin ^= (self.LF_POLY_EVEN & state.even)
-                
-                state.even = ((state.even << 1) | self._parity(feedin)) & 0xFFFFFFFF
-                state.odd, state.even = state.even, state.odd
+                # 3. 将明文位混入反馈状态中，保持状态机同步
+                self._state._shift(p_bit, feedback=feedback)
                 
             out.append(p_byte)
         return bytes(out)
-
-# ----------------- 测试与验证 -----------------
-if __name__ == '__main__':
-    # 您要求的验证条件：
-    # Key = FFFFFFFFFFFF
-    # PlainText = 12345678
-    # 期望的 CipherText = EDAB4A1E
-
-    key_hex = "FFFFFFFFFFFF"
-    plain_hex = "12345678"
-    expected_cipher_hex = "EDAB4A1E"
-
-    key_bytes = bytes.fromhex(key_hex)
-    plain_bytes = bytes.fromhex(plain_hex)
-    
-    crypto = MifareCrypto1()
-    
-    # 执行加密
-    cipher_bytes = crypto.encrypt(plain_bytes, key_bytes)
-    cipher_result_hex = cipher_bytes.hex().upper()
-    
-    # 执行解密（验证可逆性）
-    decrypted_bytes = crypto.decrypt(cipher_bytes, key_bytes)
-    decrypted_result_hex = decrypted_bytes.hex().upper()
-
-    print(f"[+] 输入 Key:      {key_hex}")
-    print(f"[+] 输入 Plain:    {plain_hex}")
-    print(f"[+] 期望 Cipher:   {expected_cipher_hex}")
-    print(f"[-] 实际 Cipher:   {cipher_result_hex}")
-    print(f"[-] 解密恢复数据:  {decrypted_result_hex}")
-    
-    # 验证是否正确
-    if cipher_result_hex == expected_cipher_hex and decrypted_result_hex == plain_hex:
-        print("\n✅ 验证通过：生成密文和解密结果与 nfctools 运行结果完全一致！")
-    else:
-        print("\n❌ 验证失败：生成结果不匹配。")
