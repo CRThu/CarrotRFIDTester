@@ -86,6 +86,9 @@ class MifareCrypto1(BaseCrypto):
             :param feedback: 是否启用 LFSR 反馈逻辑
             :return: 当前生成的密钥流 bit (ks_bit)
             """
+            # 获取当前的滤波输出位作为密钥流位 (在移位前)
+            ks_bit = self.get_filter_bit()
+
             # 基础反馈来自于多项式掩码与当前状态的奇偶校验
             feedin = (MifareCrypto1.LF_POLY_ODD & self.odd) ^ (MifareCrypto1.LF_POLY_EVEN & self.even)
             # 如果开启反馈（即加密/同步模式），则将输入位混入反馈回路
