@@ -74,4 +74,9 @@ class PN532_HSU(CardReader):
         return self._read_frame()
 
     def disconnect(self):
-        self.transport.close()
+        try:
+            self.raw_command(b'\x52\x00')
+        except Exception as e:
+            logger.error(f"下发结束指令失败: {e}")
+        finally:
+            self.transport.close()
