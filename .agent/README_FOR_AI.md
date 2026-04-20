@@ -20,8 +20,8 @@
 ### 第三层：卡片逻辑层 (Card Layer)
 *   **目录**: `src/crft/cards/`
 *   **职责**: 实现各种 RFID 卡片协议逻辑（如 ISO14443A, Mifare Classic）。
-*   **核心类**: `BaseCard`, `MifareClassic`。
-*   **逻辑**: 处理寻卡、防碰撞（Anticollision）、选择卡片（Select）等逻辑。
+*   **核心类**: `BaseCard`, `MifareClassicCard`。
+*   **逻辑**: 处理寻卡、防碰撞（Anticollision）、选择卡片（Select）等基础逻辑，并包含完整的 Mifare Classic 块操作（`read_block`, `write_block`、`authenticate` 等指令集），同时集成了 `MifareCrypto1` 用于数据载荷的加解密（`encrypt_data`, `decrypt_data`）。
 
 ### 第四层：加密算法层 (Crypto Layer)
 *   **目录**: `src/crft/crypto/`

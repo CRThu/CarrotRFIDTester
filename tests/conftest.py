@@ -1,4 +1,8 @@
 import pytest
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "mifare: mark tests that require MIFARE hardware")
+
 from crft.hardware.serial_transport import SerialTransport
 from crft.drivers.pn532_hsu import PN532_HSU
 
