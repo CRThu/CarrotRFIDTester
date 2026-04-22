@@ -34,6 +34,12 @@
 *   **设计原则**: 仅暴露标准的 `initialize`, `encrypt`, `decrypt` 三个公开方法。加密引擎内部维护私有状态机 `_state`，其生命周期由 `initialize` 严格控制。
 *   **状态同步**: `MifareCrypto1.State` 作为状态控制器，提供了 `_shift` (受保护的单步移位) 等原子操作，支持卡片层进行精细的协议编排（如三轮认证）。Mifare 特有的算法（如 `prng_successor`）在此层统一实现，确保算法逻辑与协议逻辑的严格解耦。
 
+### 第五层：工具层 (Tools Layer)
+*   **目录**: `src/crft/tools/`
+*   **职责**: 提供命令行接口 (CLI) 以直接调用核心加密/通信逻辑。
+*   **运行方式**: `uv run aes128-cli -m encrypt -i <hex> -k <key>`
+
+
 ## 3. 开发与测试指南
 
 *   **环境管理**: 使用 `uv`。
