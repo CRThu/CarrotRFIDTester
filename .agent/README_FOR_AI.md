@@ -30,9 +30,14 @@
 ### 第四层：加密算法层 (Crypto Layer)
 *   **目录**: `src/crft/crypto/`
 *   **职责**: 提供卡片交互所需的底层加密/解密原子操作。
-*   **核心模块**: `AES`, `DES`, `MifareCrypto1` (有状态的流加密引擎)。
-*   **设计原则**: 仅暴露标准的 `initialize`, `encrypt`, `decrypt` 三个公开方法。加密引擎内部维护私有状态机 `_state`，其生命周期由 `initialize` 严格控制。
-*   **状态同步**: `MifareCrypto1.State` 作为状态控制器，提供了 `_shift` (受保护的单步移位) 等原子操作，支持卡片层进行精细的协议编排（如三轮认证）。Mifare 特有的算法（如 `prng_successor`）在此层统一实现，确保算法逻辑与协议逻辑的严格解耦。
+*   **核心模块**: 
+    *   `AES128Crypto`: 实现 AES-128 CBC 模式。
+    *   `MifareCrypto1`: 有状态的流加密引擎，支持 Mifare Classic 认证。
+*   **设计原则**: 
+    *   **接口统一**: 继承 `BaseCrypto` 基类，确保 `encrypt` 和 `decrypt` 接口一致性。
+    *   **状态隔离**: 对于 `MifareCrypto1` 等流加密，通过 `initialize` 严格管理内部 LFSR 状态；对于 `AES128Crypto` 等分组加密，则保持无状态设计。
+*   **算法归口**: 包含算法特有的逻辑（如 Mifare 的 `prng_successor` 或 AES 的填充校验），确保算法实现的纯粹性，不包含卡片协议层逻辑。
+
 
 ### 第五层：工具层 (Tools Layer)
 *   **目录**: `src/crft/tools/`
@@ -44,7 +49,13 @@
 
 *   **环境管理**: 使用 `uv`。
 *   **运行脚本**: 必须使用 `uv run <script_path>`。
-*   **自动化测试**: 必须使用 `pytest` 执行。
+*   **自动化测试**:
+    *   使用 `pytest` 执行测试。
+    *   测试结构与源码模块对齐：
+        *   `tests/crypto/`: 算法层测试。
+        *   `tests/cards/`: 卡片协议层测试。
+        *   `tests/drivers/`: 硬件驱动层测试。
+    *   执行特定模块测试: `uv run pytest tests/crypto/`
 *   **配置**: 硬件参数（如 COM 端口）应通过环境变量 `CRFT_PORT` 或配置文件读取，严禁硬编码在核心库中。
 *   **代码规范**: 
     *   方法和类必须有 Docstring。
