@@ -20,10 +20,12 @@
 ### 第三层：卡片逻辑层 (Card Layer)
 *   **目录**: `src/crft/cards/`
 *   **职责**: 实现各种 RFID 卡片协议逻辑（如 ISO14443A, Mifare Classic）。
-*   **核心类**: `BaseCard`, `MifareClassicCard`。
+*   **核心类**: `BaseTag`, `BaseCard`, `MifareClassicCard`, `Type2Tag`。
 *   **逻辑**: 
-    *   处理寻卡、防碰撞、选择卡片等 ISO14443A 基础流程。
-    *   实现完整的 Mifare Classic 指令集（`read_block`, `write_block`, `increment` 等），通过调用读卡器层的 `transceive` 进行交互，实现卡片逻辑与读卡器硬件指令（如 `InDataExchange`）的解耦。
+    *   **BaseTag**: 针对简单标签的基类，定义了通用的 `read_page` 和 `write_page` 接口。
+    *   **BaseCard**: 针对加密智能卡的基类，包含 `authenticate` 和钱包操作等复杂功能。
+    *   `MifareClassicCard`: 继承自 `BaseCard`，实现完整的 Mifare Classic 指令集。
+    *   `Type2Tag`: 继承自 `BaseTag`，实现 NFC Forum Type 2 Tag 标准指令集（如 NTAG 读写）。
     *   **认证逻辑**: `authenticate` 方法使用 PN532 内置的硬件认证功能。
     *   **协议安全**: 目前依赖硬件层处理 Mifare Classic 的三轮认证，加密算法层主要提供离线的算法验证支持。
 

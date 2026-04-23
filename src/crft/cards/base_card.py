@@ -1,7 +1,11 @@
 from abc import ABC, abstractmethod
 
+
 class BaseCard(ABC):
-    """加密卡基类"""
+    """
+    加密卡基类 (如 Mifare Classic)
+    """
+
     def __init__(self, reader, uid: bytes):
         self.reader = reader
         self.uid = uid
