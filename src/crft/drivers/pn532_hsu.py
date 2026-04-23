@@ -61,11 +61,11 @@ class PN532_HSU(CardReader):
         """
         配置 PN532 寻卡为不重试模式
         CfgItem 0x05: MaxRetries (3 bytes)
-        Byte 1: MxRtyATR (默认 0xFF，设为 0x01，Active Mode 重试一次)
+        Byte 1: MxRtyATR (默认 0xFF，设为 0x01)
         Byte 2: MxRtyPSL (默认 0x01)
-        Byte 3: MxRtyPassiveActivation (设为 0x00，即不重试)
+        Byte 3: MxRtyPassiveActivation (设为 0x01，即重试一次，保证卡片多次REQA可成功进入ACTIVE)
         """
-        self._send_frame(b'\x32\x05\x01\x01\x00') 
+        self._send_frame(b'\x32\x05\x01\x01\x01') 
         self._read_frame()
 
         logger.success("PN532 HSU 初始化成功")
@@ -93,18 +93,39 @@ class PN532_HSU(CardReader):
             logger.error(f"PN532 指令 0x{data[0]:02X} 执行失败: 无响应")
         return res
 
+    # def transceive(self, data: bytes) -> bytes:
+    #     """封装 PN532 的 InDataExchange 指令发送给卡片"""
+    #     # 0x40 (InDataExchange), 0x01 (Target 1)
+    #     full_cmd = b'\x40\x01' + data
+    #     res = self.raw_command(full_cmd)
+        
+    #     # 响应格式: 0x41 (Response), Status, [Data]
+    #     if res and len(res) >= 2 and res[0] == 0x41:
+    #         if res[1] == 0x00:
+    #             return res[2:]
+    #         else:
+    #             logger.warning(f"指令交换返回错误状态: 0x{res[1]:02X}")
+    #     return None
+
     def transceive(self, data: bytes) -> bytes:
-        """封装 PN532 的 InDataExchange 指令发送给卡片"""
-        # 0x40 (InDataExchange), 0x01 (Target 1)
-        full_cmd = b'\x40\x01' + data
+        """封装 PN532 的 InCommunicateThru 指令发送给卡片"""
+        
+        # 0x42 (InCommunicateThru)
+        full_cmd = b'\x42' + data
+        
         res = self.raw_command(full_cmd)
         
-        # 响应格式: 0x41 (Response), Status, [Data]
-        if res and len(res) >= 2 and res[0] == 0x41:
+        # 3. 响应格式: 0x43 (Response), Status, [Data]
+        # 检查响应头是否为 0x43
+        if res and len(res) >= 2 and res[0] == 0x43:
+            # 检查 Status Byte (res[1])
             if res[1] == 0x00:
+                # 成功，返回后续的所有数据
                 return res[2:]
             else:
-                logger.warning(f"指令交换返回错误状态: 0x{res[1]:02X}")
+                # 记录错误状态码
+                logger.warning(f"InCommunicateThru 返回错误状态: 0x{res[1]:02X}")
+                return res[2:]
         return None
 
     def disconnect(self):
