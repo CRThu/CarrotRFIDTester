@@ -30,6 +30,7 @@ class PN532_HSU(CardReader):
         # 读取 ACK (00 00 FF 00 FF 00)
         ack = self.transport.read(6)
         if ack != b'\x00\x00\xff\x00\xff\x00': 
+            self.transport.flush_input()
             return None
         
         # 读取数据帧头
@@ -56,6 +57,17 @@ class PN532_HSU(CardReader):
         # 配置 SAM 为普通模式
         self._send_frame(b'\x14\x01\x00')
         self._read_frame()
+
+        """
+        配置 PN532 寻卡为不重试模式
+        CfgItem 0x05: MaxRetries (3 bytes)
+        Byte 1: MxRtyATR (默认 0xFF，设为 0x01，Active Mode 重试一次)
+        Byte 2: MxRtyPSL (默认 0x01)
+        Byte 3: MxRtyPassiveActivation (设为 0x00，即不重试)
+        """
+        self._send_frame(b'\x32\x05\x01\x01\x00') 
+        self._read_frame()
+
         logger.success("PN532 HSU 初始化成功")
 
     def get_version(self) -> bytes:
@@ -63,10 +75,14 @@ class PN532_HSU(CardReader):
         return self._read_frame()
 
     def poll_tag(self) -> dict:
+        self.transport.flush_input()
         self._send_frame(b'\x4A\x01\x00')
         res = self._read_frame()
-        if res and len(res) > 1 and res[1] > 0:
-            return {"uid": res[7:7+res[6]], "sak": res[5], "raw": res}
+        # PN532 响应格式：0xD5 0x4B [NbTg] [Tg1] ...
+        if res and len(res) >= 2 and res[0] == 0x4B:
+            nb_targets = res[1]
+            if nb_targets > 0:
+                return {"uid": res[7:7+res[6]], "sak": res[5], "raw": res}
         return None
 
     def raw_command(self, data: bytes) -> bytes:

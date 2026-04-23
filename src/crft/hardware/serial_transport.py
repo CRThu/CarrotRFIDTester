@@ -6,7 +6,7 @@ class SerialTransport(Transport):
     """基于串口的传输实现"""
     def __init__(self, port="COM20", baudrate=115200):
         try:
-            self.ser = serial.Serial(port, baudrate, timeout=1)
+            self.ser = serial.Serial(port, baudrate, timeout=0.05)
             logger.info(f"成功连接串口: {port}")
         except Exception as e:
             logger.error(f"无法打开串口: {e}")
