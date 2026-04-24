@@ -1,6 +1,6 @@
 import time
 import sys
-from loguru import logger
+from crft.trace import trace
 from crft.hardware.serial_transport import SerialTransport
 from crft.drivers.pn532_hsu import PN532_HSU
 
@@ -9,9 +9,7 @@ def run_scanner():
     PN532 寻卡工具。
     采用项目解耦架构，支持循环侦测 ISO14443A 卡片。
     """
-    # 配置日志格式
-    logger.remove()
-    logger.add(sys.stderr, format="<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | {message}", colorize=True)
+    # 配置日志格式 (由 trace 统一管理，不再直接操作 logger)
 
     try:
         # 1. 初始化传输层 (自动识别环境配置中的串口)
@@ -26,24 +24,24 @@ def run_scanner():
         # 4. 获取并显示固件版本
         version = reader.get_version()
         if version:
-            logger.success(f"检测到 PN532 设备, 固件版本: {version.hex(' ').upper()}")
+            trace.success(f"检测到 PN532 设备, 固件版本: {version.hex(' ').upper()}")
         
-        logger.info("开始循环寻卡 (按 Ctrl+C 退出)...")
+        trace.info("开始循环寻卡 (按 Ctrl+C 退出)...")
         while True:
             # 5. 寻卡
             tag = reader.poll_tag()
             if tag:
                 uid = tag['uid'].hex(' ').upper()
                 sak = tag['sak']
-                logger.success(f"发现卡片! UID: {uid} | SAK: 0x{sak:02X}")
+                trace.success(f"发现卡片! UID: {uid} | SAK: 0x{sak:02X}")
             
             # 降低轮询频率
             time.sleep(0.5)
             
     except KeyboardInterrupt:
-        logger.info("扫描已停止。")
+        trace.info("扫描已停止。")
     except Exception as e:
-        logger.error(f"运行过程中发生错误: {e}")
+        trace.error(f"运行过程中发生错误: {e}")
     finally:
         if 'reader' in locals():
             reader.disconnect()

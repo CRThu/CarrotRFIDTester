@@ -3,7 +3,7 @@
 ## 1. 项目概述
 `CarrotRFIDTester` 是一个用于测试 RFID 卡片和 PN532 读卡器的自动化测试框架。项目采用分层架构，旨在实现硬件通信、芯片驱动、卡片逻辑与加密算法的解耦。
 
-## 2. 六层架构体系
+## 2. 七层架构体系
 
 ### 第一层：硬件传输层 (Hardware/Transport Layer)
 *   **目录**: `src/crft/hardware/`
@@ -49,7 +49,16 @@
     *   `crc`: 提供 `crc_a` 等标准校验算法。
 *   **设计原则**: 保持模块化，不包含复杂类，仅提供原子函数。
 
-### 第六层：脚本/CLI 层 (Scripts/CLI Layer)
+### 第六层：跟踪控制层 (Trace Layer)
+*   **目录**: `src/crft/trace/`
+*   **职责**: 提供中心化、解耦的日志处理子系统，区分物理层(driver)和协议层(protocol)的数据流监控。
+*   **核心模块**: 
+    *   `manager.py`: `TraceManager` 门面类，全局单例入口。
+    *   `handler.py`: `TraceHandler`，管理流式追加与立即输出。
+    *   `decoder.py`: `FrameDecoder`，提供物理帧和协议交互指令的解析策略。
+*   **设计原则**: 严禁在驱动层使用硬编码的打印语句。通信日志必须通过 `trace` 的对应层级 Handler 统一输出，实现业务与日志的严格分离。
+
+### 第七层：脚本/CLI 层 (Scripts/CLI Layer)
 *   **目录**: `src/crft/tools/`
 *   **职责**: 提供命令行接口 (CLI) 以直接调用核心加密/通信逻辑。
 *   **运行方式**: `uv run aes128-cli -m encrypt -i <hex> -k <key>`

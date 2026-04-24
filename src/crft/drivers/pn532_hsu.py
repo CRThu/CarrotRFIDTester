@@ -1,12 +1,13 @@
 import time
-from loguru import logger
 from crft.drivers.card_reader import CardReader
+from crft.trace import trace
 
 class PN532_HSU(CardReader):
     """PN532 HSU 协议驱动实现"""
-    def __init__(self, transport):
+    def __init__(self, transport, trace_mgr=trace):
         # 初始化传输层
         self.transport = transport
+        self.trace = trace_mgr
 
     # --- 私有辅助方法 (协议具体实现) ---
     def _send_frame(self, data: bytes):
@@ -23,12 +24,15 @@ class PN532_HSU(CardReader):
         # 帧结构: 00 00 FF [LEN] [LCS] [TFI] [DATA] [DCS] 00
         frame = b'\x00\x00\xFF' + bytes([length]) + bytes([lcs]) + bytes([tfi]) + data + bytes([dcs]) + b'\x00'
         self.transport.write(frame)
-        logger.debug(f"TX -> {frame.hex(' ').upper()}")
+        self.trace.driver(tx=frame)
 
     def _read_frame(self) -> bytes:
         """读取并解析回复帧"""
         # 读取 ACK (00 00 FF 00 FF 00)
         ack = self.transport.read(6)
+        if len(ack) > 0:
+            self.trace.driver(rx=ack)
+            
         if ack != b'\x00\x00\xff\x00\xff\x00': 
             self.transport.flush_input()
             return None
@@ -44,15 +48,19 @@ class PN532_HSU(CardReader):
         dcs = self.transport.read(1)[0]
         post = self.transport.read(1)[0]
         
-        logger.debug(f"RX <- {data.hex(' ').upper()}")
+        full_frame = header + bytes([length, lcs, tfi]) + data + bytes([dcs, post])
+        self.trace.driver(rx=full_frame)
+        
         return data
 
     def _req(self, data: bytes) -> bytes:
         """统一请求周期：发送 -> 读取 -> 基础响应校验"""
         self._send_frame(data)
         res = self._read_frame()
+        
         if res is None:
-            logger.error(f"PN532 指令 0x{data[0]:02X} 执行失败")
+            self.trace.error(f"PN532 指令 0x{data[0]:02X} 执行失败")
+            
         return res
 
     def _read_reg(self, address: int) -> int:
@@ -87,7 +95,7 @@ class PN532_HSU(CardReader):
         """
         self._req(b'\x32\x05\x01\x01\x01') 
 
-        logger.success("PN532 HSU 初始化成功")
+        self.trace.success("PN532 HSU 初始化成功")
 
     def get_version(self) -> bytes:
         return self._req(b'\x02')
@@ -113,7 +121,7 @@ class PN532_HSU(CardReader):
         val_rx = self._read_reg(0x6303)
 
         if val_tx is None or val_rx is None:
-            logger.error("无法读取 CRC 寄存器状态")
+            self.trace.error("无法读取 CRC 寄存器状态")
             return
 
         # 修改第 7 位 (TxCRCEn / RxCRCEn)
@@ -130,10 +138,11 @@ class PN532_HSU(CardReader):
         # 写回寄存器
         self._write_reg(0x6302, val_tx)
         self._write_reg(0x6303, val_rx)
-        logger.debug(f"PN532 CRC 配置: TX={tx_enabled}, RX={rx_enabled}")
+        self.trace.debug(f"PN532 CRC 配置: TX={tx_enabled}, RX={rx_enabled}")
 
     def exchange(self, data: bytes) -> bytes:
         """封装 PN532 的 InDataExchange 指令发送给卡片"""
+        self.trace.protocol(tx=data)
         # 0x40 (InDataExchange), 0x01 (Target 1)
         full_cmd = b'\x40\x01' + data
         res = self._req(full_cmd)
@@ -141,13 +150,15 @@ class PN532_HSU(CardReader):
         # 响应格式: 0x41 (Response), Status, [Data]
         if res and len(res) >= 2 and res[0] == 0x41:
             if res[1] == 0x00:
+                self.trace.protocol(rx=res[2:])
                 return res[2:]
             else:
-                logger.warning(f"指令交换返回错误状态: 0x{res[1]:02X}")
+                self.trace.warning(f"指令交换返回错误状态: 0x{res[1]:02X}")
         return None
 
     def transceive(self, data: bytes) -> bytes:
         """封装 PN532 的 InCommunicateThru 指令发送给卡片"""
+        self.trace.protocol(tx=data)
         # 0x42 (InCommunicateThru)
         full_cmd = b'\x42' + data
         res = self._req(full_cmd)
@@ -155,9 +166,11 @@ class PN532_HSU(CardReader):
         # 响应格式: 0x43 (Response), Status, [Data]
         if res and len(res) >= 2 and res[0] == 0x43:
             if res[1] == 0x00:
+                self.trace.protocol(rx=res[2:])
                 return res[2:]
             else:
-                logger.warning(f"InCommunicateThru 返回错误状态: 0x{res[1]:02X}")
+                self.trace.warning(f"InCommunicateThru 返回错误状态: 0x{res[1]:02X}")
+                self.trace.protocol(rx=res[2:])
                 return res[2:]
         return None
 
@@ -165,6 +178,6 @@ class PN532_HSU(CardReader):
         try:
             self._req(b'\x52\x00')
         except Exception as e:
-            logger.error(f"下发结束指令失败: {e}")
+            self.trace.error(f"下发结束指令失败: {e}")
         finally:
             self.transport.close()

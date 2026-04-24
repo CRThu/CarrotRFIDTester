@@ -1,5 +1,5 @@
 import serial
-from loguru import logger
+from crft.trace import trace
 from crft.hardware.base import Transport
 
 class SerialTransport(Transport):
@@ -7,9 +7,9 @@ class SerialTransport(Transport):
     def __init__(self, port="COM20", baudrate=115200):
         try:
             self.ser = serial.Serial(port, baudrate, timeout=0.1)
-            logger.info(f"成功连接串口: {port}")
+            trace.info(f"成功连接串口: {port}")
         except Exception as e:
-            logger.error(f"无法打开串口: {e}")
+            trace.error(f"无法打开串口: {e}")
             raise
 
     def write(self, data: bytes):
@@ -24,4 +24,4 @@ class SerialTransport(Transport):
     def close(self):
         if self.ser.is_open:
             self.ser.close()
-            logger.info("串口已关闭")
+            trace.info("串口已关闭")
