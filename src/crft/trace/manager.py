@@ -9,7 +9,11 @@ def trace_format(record):
     就用 layer 替代 level 的位置，否则显示默认的 INFO/ERROR 等。
     """
     tag = record["extra"].get("layer", record["level"].name)
-    return f"<green>{{time:HH:mm:ss.SSS}}</green> | <level>{tag: <8}</level> | <level>{{message}}</level>\n"
+    # loguru 的前缀 "HH:mm:ss.SSS | DRIVER   | " 恰好是 26 个字符
+    msg = record["message"].replace("\n", "\n" + " " * 26)
+    # 必须转义大括号，否则带有字典的字符串会被 loguru 误以为是格式化占位符而报错
+    msg = msg.replace("{", "{{").replace("}", "}}")
+    return f"<green>{{time:HH:mm:ss.SSS}}</green> | <level>{tag: <8}</level> | <level>{msg}</level>\n"
 
 # 移除 loguru 默认的处理器，应用自定义格式
 logger.remove()
