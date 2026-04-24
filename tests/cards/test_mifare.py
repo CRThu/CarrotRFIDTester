@@ -4,7 +4,7 @@ from crft.cards.mifare_classic import MifareClassicCard
 @pytest.fixture
 def card(card_reader):
     """获取 MifareClassicCard 实例的 fixture"""
-    tag = card_reader.poll_tag()
+    tag = card_reader.find()
     assert tag is not None, "未找到卡片"
     return MifareClassicCard(card_reader, tag["uid"])
 

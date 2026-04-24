@@ -31,5 +31,7 @@ class Type2Tag(BaseTag):
             raise ValueError("Type 2 Tag write_page requires exactly 4 bytes of data")
 
         cmd = bytes([self.CMD_WRITE, page_addr]) + data
+        self.reader.set_crc(True, False)
         res = self.transceive(cmd)
+        self.reader.set_crc(True, True)
         return res is not None

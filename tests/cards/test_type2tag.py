@@ -4,7 +4,7 @@ from crft.cards.type2tag import Type2Tag
 @pytest.fixture
 def t2t_card(card_reader):
     """获取 Type2Tag 实例的 fixture"""
-    tag = card_reader.poll_tag()
+    tag = card_reader.find()
     assert tag is not None, "未找到卡片，请确保 NFC 标签已放置在读卡器上"
     return Type2Tag(card_reader, tag["uid"])
 

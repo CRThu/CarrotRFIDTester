@@ -21,18 +21,20 @@ class CardReader(ABC):
         pass
 
     @abstractmethod
-    def poll_tag(self) -> dict:
+    def set_crc(self, tx_enabled: bool, rx_enabled: bool):
+        """
+        配置 CRC 自动处理
+        :param tx_enabled: 是否开启自动封装 CRC
+        :param rx_enabled: 是否开启自动解析 CRC
+        """
+
+
+    @abstractmethod
+    def find(self) -> dict:
         """
         寻卡操作。
         
         :return: 包含卡片标识（UID）和类型（SAK）的字典。
-        """
-        pass
-
-    @abstractmethod
-    def raw(self, data: bytes) -> bytes:
-        """
-        向读卡器发送自定义指令，并获取其应答。
         """
         pass
 
