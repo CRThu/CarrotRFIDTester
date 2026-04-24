@@ -65,6 +65,7 @@
         *   `tests/crypto/`: 算法层测试。
         *   `tests/cards/`: 卡片协议层测试。
         *   `tests/drivers/`: 硬件驱动层测试。
+        *   `tests/utils/`: 通用工具层测试（如 CRC 校验）。
     *   执行特定模块测试: `uv run pytest tests/crypto/`
 *   **配置**: 硬件参数（如 COM 端口）应通过环境变量 `CRFT_PORT` 或配置文件读取，严禁硬编码在核心库中。
 *   **代码规范**: 
