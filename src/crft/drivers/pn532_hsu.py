@@ -85,7 +85,7 @@ class PN532_HSU(CardReader):
                 return {"uid": res[7:7+res[6]], "sak": res[5], "raw": res}
         return None
 
-    def raw_command(self, data: bytes) -> bytes:
+    def raw(self, data: bytes) -> bytes:
         """发送原始指令并获取响应帧数据部分"""
         self._send_frame(data)
         res = self._read_frame()
@@ -93,19 +93,19 @@ class PN532_HSU(CardReader):
             logger.error(f"PN532 指令 0x{data[0]:02X} 执行失败: 无响应")
         return res
 
-    # def transceive(self, data: bytes) -> bytes:
-    #     """封装 PN532 的 InDataExchange 指令发送给卡片"""
-    #     # 0x40 (InDataExchange), 0x01 (Target 1)
-    #     full_cmd = b'\x40\x01' + data
-    #     res = self.raw_command(full_cmd)
+    def exchange(self, data: bytes) -> bytes:
+        """封装 PN532 的 InDataExchange 指令发送给卡片"""
+        # 0x40 (InDataExchange), 0x01 (Target 1)
+        full_cmd = b'\x40\x01' + data
+        res = self.raw(full_cmd)
         
-    #     # 响应格式: 0x41 (Response), Status, [Data]
-    #     if res and len(res) >= 2 and res[0] == 0x41:
-    #         if res[1] == 0x00:
-    #             return res[2:]
-    #         else:
-    #             logger.warning(f"指令交换返回错误状态: 0x{res[1]:02X}")
-    #     return None
+        # 响应格式: 0x41 (Response), Status, [Data]
+        if res and len(res) >= 2 and res[0] == 0x41:
+            if res[1] == 0x00:
+                return res[2:]
+            else:
+                logger.warning(f"指令交换返回错误状态: 0x{res[1]:02X}")
+        return None
 
     def transceive(self, data: bytes) -> bytes:
         """封装 PN532 的 InCommunicateThru 指令发送给卡片"""
@@ -113,7 +113,7 @@ class PN532_HSU(CardReader):
         # 0x42 (InCommunicateThru)
         full_cmd = b'\x42' + data
         
-        res = self.raw_command(full_cmd)
+        res = self.raw(full_cmd)
         
         # 3. 响应格式: 0x43 (Response), Status, [Data]
         # 检查响应头是否为 0x43
@@ -130,7 +130,7 @@ class PN532_HSU(CardReader):
 
     def disconnect(self):
         try:
-            self.raw_command(b'\x52\x00')
+            self.raw(b'\x52\x00')
         except Exception as e:
             logger.error(f"下发结束指令失败: {e}")
         finally:

@@ -30,16 +30,22 @@ class CardReader(ABC):
         pass
 
     @abstractmethod
-    def raw_command(self, data: bytes) -> bytes:
+    def raw(self, data: bytes) -> bytes:
         """
         向读卡器发送自定义指令，并获取其应答。
         """
         pass
 
+    def exchange(self, data: bytes) -> bytes:
+        """
+        与卡片进行数据交换（自动处理读卡器的封装格式，如 PN532 的 InDataExchange）。
+        返回卡片返回的原始数据块，如果失败则返回 None。
+        """
+
     @abstractmethod
     def transceive(self, data: bytes) -> bytes:
         """
-        与卡片进行数据交换（自动处理读卡器的封装格式，如 PN532 的 InDataExchange）。
+        与卡片进行数据透传（如 PN532 的 InCommunicateThru）。
         返回卡片返回的原始数据块，如果失败则返回 None。
         """
         pass
@@ -49,4 +55,4 @@ class CardReader(ABC):
         """
         释放读卡器资源并断开连接。
         """
-        pass
+        pass
