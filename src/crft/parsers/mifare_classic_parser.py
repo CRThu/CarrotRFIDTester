@@ -1,90 +1,53 @@
 from crft.parsers.base_parser import BaseParser, ParsedField, ParsedFrame
 
+# ── 字段规格: (name, byte_length, desc_fn(raw_bytes) -> str) ─────────────────
+# None 长度表示"剩余所有字节"
+_FS = lambda n, l, f: (n, l, f)   # noqa: E731 — 仅用于缩短下方表格行宽
 
-# Mifare Classic 指令码
-_MIFARE_CMDS = {
-    0x30: ("READ",          "Read Block"),
-    0xA0: ("WRITE",         "Write Block (Mifare Ultralight)"),
-    0xA2: ("WRITE",         "Write Block (NTAG)"),
-    0xA4: ("WRITE",         "Write Value Block"),
-    0x50: ("HALT",          "Halt"),
-    0x60: ("AUTH_A",        "Authenticate with Key A"),
-    0x61: ("AUTH_B",        "Authenticate with Key B"),
-    0xC0: ("DECREMENT",     "Decrement Value Block"),
-    0xC1: ("INCREMENT",     "Increment Value Block"),
-    0xC2: ("RESTORE",       "Restore Value Block"),
-    0xB0: ("TRANSFER",      "Transfer Value Block"),
+def _blk(b):  return f"Block {b[0]} / Sector {b[0] // 4}"
+def _key(b):  return "6-byte auth key"
+def _uid(b):  return f"Card UID"
+def _crc(b):  return "ISO14443A CRC-A"
+def _rsv(b):  return "Must be 0x00"
+def _pay(b):  return f"{len(b)} bytes"
+
+# 指令表: cmd_byte -> (label, [ field_specs... ])
+# field_spec: (name, length, desc_fn)   length=None → 剩余字节
+_CMD_TABLE: dict[int, tuple[str, list]] = {
+    0x30: ("READ",      [_FS("Block Number", 1, _blk), _FS("CRC", 2, _crc)]),
+    0xA0: ("WRITE",     [_FS("Block Number", 1, _blk), _FS("Data", 16, _pay)]),
+    0xA2: ("WRITE",     [_FS("Block Number", 1, _blk), _FS("Data",  4, _pay)]),
+    0x50: ("HALT",      [_FS("Reserved",     1, _rsv), _FS("CRC",   2, _crc)]),
+    0x60: ("AUTH_A",    [_FS("Block Number", 1, _blk), _FS("Key A", 6, _key), _FS("UID", 4, _uid)]),
+    0x61: ("AUTH_B",    [_FS("Block Number", 1, _blk), _FS("Key B", 6, _key), _FS("UID", 4, _uid)]),
+    0xC0: ("DECREMENT", [_FS("Block Number", 1, _blk), _FS("Value", 4, _pay)]),
+    0xC1: ("INCREMENT", [_FS("Block Number", 1, _blk), _FS("Value", 4, _pay)]),
+    0xC2: ("RESTORE",   [_FS("Block Number", 1, _blk)]),
+    0xB0: ("TRANSFER",  [_FS("Block Number", 1, _blk)]),
 }
 
-# 访问位含义（部分）
-_ACCESS_MAP = {
-    0b000: "Always",
-    0b010: "Key B only",
-    0b100: "Never",
-    0b110: "Key A or B",
-}
+
+def _parse_fields(data: bytes, offset: int, specs: list) -> list[ParsedField]:
+    """按 field_spec 列表顺序切分 data，生成 ParsedField 列表"""
+    result = []
+    for name, length, desc_fn in specs:
+        chunk = data[offset:] if length is None else data[offset:offset + length]
+        if not chunk:
+            break
+        result.append(ParsedField(name, chunk, int.from_bytes(chunk, "big"), desc_fn(chunk)))
+        offset += len(chunk)
+    return result
 
 
 class MifareClassicParser(BaseParser):
-    """
-    Mifare Classic 卡片指令解析器。
-
-    解析对象是经由 PN532 InDataExchange 之后剥离 PN532 封装的原始 APDU 层数据。
-    目前实现：READ / AUTH_A / AUTH_B / HALT 指令。
-    """
+    """Mifare Classic 指令层解析器（InDataExchange 剥离 PN532 封装后的原始数据）"""
 
     def can_parse(self, data: bytes) -> bool:
-        return len(data) >= 1 and data[0] in _MIFARE_CMDS
+        return len(data) >= 1 and data[0] in _CMD_TABLE
 
     def parse(self, data: bytes) -> ParsedFrame:
-        if not data:
-            return ParsedFrame(raw=data, label="Mifare Classic (Empty)", is_valid=False)
-
-        cmd_byte = data[0]
-        short_name, cmd_desc = _MIFARE_CMDS.get(cmd_byte, ("UNKNOWN", f"Unknown Command 0x{cmd_byte:02X}"))
-
-        fields: list[ParsedField] = []
-
-        cmd_field = ParsedField(
-            name="COMMAND",
-            raw=bytes([cmd_byte]),
-            value=cmd_byte,
-            description=f"{short_name} — {cmd_desc}",
-        )
-        fields.append(cmd_field)
-
-        # READ 指令: CMD(1) + BLOCK_NO(1)
-        if cmd_byte == 0x30:
-            if len(data) >= 2:
-                blk = data[1]
-                fields.append(ParsedField("Block Number", bytes([blk]), blk, f"Block {blk} (Sector {blk // 4})"))
-            if len(data) > 2:
-                fields.append(ParsedField("CRC", data[2:4], int.from_bytes(data[2:4], "little"), "ISO14443A CRC-A"))
-
-        # AUTH 指令: CMD(1) + BLOCK_NO(1) + KEY(6) + UID(4)
-        elif cmd_byte in (0x60, 0x61):
-            key_type = "Key A" if cmd_byte == 0x60 else "Key B"
-            if len(data) >= 2:
-                blk = data[1]
-                fields.append(ParsedField("Block Number", bytes([blk]), blk, f"Block {blk} (Sector {blk // 4})"))
-            if len(data) >= 8:
-                key = data[2:8]
-                fields.append(ParsedField(key_type, key, int.from_bytes(key, "big"), "6-byte Authentication Key"))
-            if len(data) >= 12:
-                uid = data[8:12]
-                fields.append(ParsedField("UID", uid, int.from_bytes(uid, "big"), "Card UID (4 bytes)"))
-
-        # HALT 指令: CMD(1) + 0x00 + CRC(2)
-        elif cmd_byte == 0x50:
-            if len(data) >= 2:
-                fields.append(ParsedField("Reserved", bytes([data[1]]), data[1], "Must be 0x00"))
-            if len(data) >= 4:
-                fields.append(ParsedField("CRC", data[2:4], int.from_bytes(data[2:4], "little"), "ISO14443A CRC-A"))
-
-        # 其余指令：通用载荷
-        else:
-            if len(data) > 1:
-                payload = data[1:]
-                fields.append(ParsedField("Payload", payload, payload[0], f"{len(payload)} bytes"))
-
-        return ParsedFrame(raw=data, label=f"Mifare Classic — {short_name}", fields=fields)
+        cmd = data[0]
+        label, specs = _CMD_TABLE.get(cmd, (f"UNKNOWN (0x{cmd:02X})", []))
+        fields = [ParsedField("Command", data[0:1], cmd, label)]
+        fields += _parse_fields(data, 1, specs)
+        return ParsedFrame(raw=data, label=f"Mifare Classic — {label}", fields=fields)
