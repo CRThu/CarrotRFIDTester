@@ -31,3 +31,31 @@ def test_t2t_read_write_tag(t2t_card):
     # 4. 恢复原始数据 (清理测试痕迹)
     assert t2t_card.write_page(page_addr, original_data) is True
     assert t2t_card.read_page(page_addr)[0:4] == original_data
+
+
+@pytest.mark.t2t
+def test_t2t_ndef_operations(t2t_card):
+    """
+    测试 NDEF 写入与读取
+    """
+    # 写入一个简单的 NDEF 结构
+    # T=0x03, L=0x04, V=[0xAA, 0xBB, 0xCC, 0xDD], Terminator=0xFE
+    p4 = b'\x03\x04\xAA\xBB'
+    p5 = b'\xCC\xDD\xFE\x00'
+    
+    # 备份 Page 4, 5
+    p4_backup = t2t_card.read_page(4)[0:4]
+    p5_backup = t2t_card.read_page(5)[0:4]
+    
+    try:
+        t2t_card.write_page(4, p4)
+        t2t_card.write_page(5, p5)
+        
+        # 使用 read_ndef 读取并验证
+        res = t2t_card.read_ndef()
+        assert res["ndef"] == b'\xAA\xBB\xCC\xDD'
+        
+    finally:
+        # 恢复
+        t2t_card.write_page(4, p4_backup)
+        t2t_card.write_page(5, p5_backup)

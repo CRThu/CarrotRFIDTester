@@ -25,14 +25,14 @@ class TraceManager:
         # driver 层：PN532 物理帧
         self.driver = TraceHandler(
             layer_name="DRIVER",
-            logger_func=logger.bind(layer="DRIVER").info,
+            logger_func=logger.bind(layer="DRIVER").trace,
             parsers=[PN532HSUParser()],
         )
         # protocol 层：按优先级排列所有卡片协议解析器
         # can_parse 不匹配时自动尝试下一个
         self.protocol = TraceHandler(
             layer_name="PROTOCOL",
-            logger_func=logger.bind(layer="PROTOCOL").info,
+            logger_func=logger.bind(layer="PROTOCOL").trace,
             parsers=[MifareClassicParser(), T2TParser()],
         )
 
