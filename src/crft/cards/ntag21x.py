@@ -27,21 +27,20 @@ class NTAG21x(Type2Tag):
         if len(password) != 4:
             raise ValueError("NTAG21x password must be 4 bytes")
 
+        # 1. 组装指令: 0x1B + 4字节密码
         cmd = bytes([self.CMD_PWD_AUTH]) + password
         
-        # PWD_AUTH 响应为 2 字节 PACK + CRC
-        # 4-bit NAK 则会导致 PN532 返回状态错误 (如 0x14)
+        # 2. 发送指令
+        # 注意：如果认证失败，芯片会返回 4-bit 的 NAK (0x0)，
+        # 许多读写器驱动（如 PN532）会将 NAK 转换成通信超时或传输错误异常。
         res = self.transceive(cmd)
         
-        if not res:
-            raise PermissionError("NTAG21x authentication failed: No response (possible NAK or timeout)")
-            
-        if len(res) == 2 and res[0] == 0x0A:
-            # 预期 PACK 为 0x0A 0xXX
-            return res
-        
-        # 如果返回的是其他数据（虽然在 T2T 模式下较少见）
-        if res[0] != 0x0A:
-            raise PermissionError(f"NTAG21x authentication failed: Got {res.hex().upper()} instead of PACK")
-        
-        return res
+        # 3. 验证响应
+        if res is None or len(res) == 0:
+            raise PermissionError("Authentication failed: No response (NAK)")
+
+        # NTAG21x 认证成功会返回 2 字节的 PACK
+        if len(res) == 2:
+            return res 
+        else:
+            raise PermissionError(f"Authentication failed: Unexpected response length {len(res)}")
