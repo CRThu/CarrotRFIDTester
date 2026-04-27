@@ -138,7 +138,7 @@ class PN532_HSU(CardReader):
         # 写回寄存器
         self._write_reg(0x6302, val_tx)
         self._write_reg(0x6303, val_rx)
-        self.trace.debug(f"PN532 CRC 配置: TX={tx_enabled}, RX={rx_enabled}")
+        # self.trace.debug(f"PN532 CRC 配置: TX={tx_enabled}, RX={rx_enabled}")
 
     def exchange(self, data: bytes) -> bytes:
         """封装 PN532 的 InDataExchange 指令发送给卡片"""
