@@ -3,7 +3,7 @@
 ## 1. 项目概述
 `CarrotRFIDTester` 是一个用于测试 RFID 卡片和 PN532 读卡器的自动化测试框架。项目采用分层架构，旨在实现硬件通信、芯片驱动、卡片逻辑与加密算法的解耦。
 
-## 2. 七层架构体系
+## 2. 八层架构体系
 
 ### 第一层：硬件传输层 (Hardware/Transport Layer)
 *   **目录**: `src/crft/hardware/`
@@ -53,12 +53,25 @@
 *   **目录**: `src/crft/trace/`
 *   **职责**: 提供中心化、解耦的日志处理子系统，区分物理层(driver)和协议层(protocol)的数据流监控。
 *   **核心模块**: 
-    *   `manager.py`: `TraceManager` 门面类，全局单例入口。
-    *   `handler.py`: `TraceHandler`，管理流式追加与立即输出。
-    *   `decoder.py`: `FrameDecoder`，提供物理帧和协议交互指令的解析策略。
+    *   `manager.py`: `TraceManager` 门面类，全局单例入口；注入对应解析器到各 Handler。
+    *   `handler.py`: `TraceHandler`，管理流式追加与立即输出；接受 `BaseParser` 实例，调用 `TraceFormatter` 渲染。
+    *   `formatter.py`: `TraceFormatter`，接受 `ParsedFrame` 对象，渲染树状对齐输出（`[+]/[-]- 字段名 : hex  |-- 子字段`）。
 *   **设计原则**: 严禁在驱动层使用硬编码的打印语句。通信日志必须通过 `trace` 的对应层级 Handler 统一输出，实现业务与日志的严格分离。
 
-### 第七层：脚本/CLI 层 (Scripts/CLI Layer)
+### 第七层：协议解析层 (Parsers Layer)
+*   **目录**: `src/crft/parsers/`
+*   **职责**: 将字节流解析为含语义描述的结构化字段树，供 `TraceFormatter` 渲染，与日志层解耦。
+*   **数据结构**:
+    *   `ParsedField`: 单个字段（名称、原始字节、数值、描述、子字段列表）。
+    *   `ParsedFrame`: 顶层结果（字段列表、帧标签、有效性标志）。
+*   **核心模块**:
+    *   `base_parser.py`: `BaseParser` 抽象基类，定义 `can_parse(data)` 和 `parse(data) -> ParsedFrame` 接口。
+    *   `pn532_hsu_parser.py`: `PN532HSUParser`，解析 PN532 HSU 物理帧（ACK/NACK/Normal Frame），含 TFI/CMD/Status/Payload 子字段。
+    *   `mifare_classic_parser.py`: `MifareClassicParser`，解析剥离 PN532 封装后的 Mifare Classic 指令层（READ/AUTH/HALT）。
+    *   `t2t_parser.py`: `T2TParser`，解析 NFC Forum Type 2 Tag 指令层（READ/WRITE/PWD_AUTH/HALT，ACK/NACK 响应）。
+*   **设计原则**: 解析器只做结构化解析，不负责任何格式化输出。可通过 `TraceHandler(parser=XxxParser())` 按需注入，与具体协议无关。
+
+### 第八层：脚本/CLI 层 (Scripts/CLI Layer)
 *   **目录**: `src/crft/tools/`
 *   **职责**: 提供命令行接口 (CLI) 以直接调用核心加密/通信逻辑。
 *   **运行方式**: `uv run aes128-cli -m encrypt -i <hex> -k <key>`
