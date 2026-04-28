@@ -22,14 +22,14 @@ def test_t2t_read_write_tag(t2t_card):
 
     # 2. 写入测试数据 (必须为 4 字节)
     test_data = b'\xDE\xAD\xBE\xEF'
-    assert t2t_card.write_page(page_addr, test_data) is True
+    t2t_card.write_page(page_addr, test_data)
     
     # 3. 验证写入结果
     updated_data_full = t2t_card.read_page(page_addr)
     assert updated_data_full[0:4] == test_data
     
     # 4. 恢复原始数据 (清理测试痕迹)
-    assert t2t_card.write_page(page_addr, original_data) is True
+    t2t_card.write_page(page_addr, original_data)
     assert t2t_card.read_page(page_addr)[0:4] == original_data
 
 

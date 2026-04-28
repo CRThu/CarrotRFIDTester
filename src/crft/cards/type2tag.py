@@ -24,7 +24,7 @@ class Type2Tag(BaseTag):
             raise RuntimeError(f"Type 2 Tag read_page(0x{page_addr:02X}) failed: No response from card")
         return res
 
-    def write_page(self, page_addr: int, data: bytes) -> bool:
+    def write_page(self, page_addr: int, data: bytes):
         """
         写入页数据 (T2T 规范每次写入 4 字节)
         :param page_addr: 页地址
@@ -37,7 +37,11 @@ class Type2Tag(BaseTag):
         self.reader.set_crc(True, False)
         res = self.transceive(cmd)
         self.reader.set_crc(True, True)
-        return res is not None
+
+        if not res:
+            raise RuntimeError(f"Type 2 Tag write_page(0x{page_addr:02X}) failed: No response from card")
+        if res != b'\x0A':
+            raise RuntimeError(f"Type 2 Tag write_page(0x{page_addr:02X}) failed: NAK(0x{res.hex(' ').upper()}) from card")
         
     def read_ndef(self) -> dict:
         """
