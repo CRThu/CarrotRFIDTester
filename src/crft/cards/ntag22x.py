@@ -26,6 +26,21 @@ class NTAG22x(Type2Tag):
         cmd = bytes([self.CMD_GET_VERSION])
         return self.transceive(cmd)
 
+    def write_key(self, key: bytes):
+        """
+        写入 16 字节 AES 密钥。
+        根据 NTAG224 规范，密钥需以反向字节序写入 Page 0x40-0x43。
+        """
+        if len(key) != 16:
+            raise ValueError("AES key must be 16 bytes")
+        
+        # 按照规范，字节序需要反转
+        reversed_key = key[::-1]
+        for i in range(4):
+            page_addr = 0x40 + i
+            chunk = reversed_key[i*4 : (i+1)*4]
+            self.write_page(page_addr, chunk)
+
     def auth(self, password: bytes):
         """
         发送 0x1A 指令进行密码认证
