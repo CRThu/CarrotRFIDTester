@@ -19,7 +19,7 @@ class NTAG21x(Type2Tag):
         cmd = bytes([self.CMD_GET_VERSION])
         return self.transceive(cmd)
 
-    def auth(self, password: bytes):
+    def auth(self, password: bytes) -> bytes:
         """
         发送 0x1B 指令进行密码
         认证认证流程说明：
