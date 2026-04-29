@@ -11,10 +11,12 @@ class TraceHandler:
         layer_name: str,
         logger_func: Callable[[str], None],
         parsers: list[BaseParser] = None,   # 按优先级排列，首个 can_parse 命中的生效
+        enabled: bool = False,
     ):
         self.layer_name  = layer_name
         self.logger_func = logger_func
         self.parsers     = parsers or []
+        self.enabled     = enabled
         self._tx_buffer  = bytearray()
         self._rx_buffer  = bytearray()
 

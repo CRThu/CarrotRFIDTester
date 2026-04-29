@@ -1,3 +1,4 @@
+import os
 import sys
 from loguru import logger
 from .handler import TraceHandler
@@ -12,27 +13,72 @@ def trace_format(record):
     return f"<green>{{time:HH:mm:ss.SSS}}</green> | <level>{tag: <8}</level> | <level>{msg}</level>\n"
 
 
-logger.remove()
-logger.add(sys.stdout, format=trace_format)
-
 
 class TraceManager:
-    """中心日志调度器，按层注入解析器链"""
+    """中心日志调度器，支持动态切换层级(Layer)和级别(Level)"""
 
     def __init__(self):
-        # driver 层：PN532 物理帧
-        self.driver = TraceHandler(
-            layer_name="DRIVER",
-            logger_func=logger.bind(layer="DRIVER").trace,
-            parsers=[PN532HSUParser()],
-        )
-        # protocol 层：按优先级排列所有卡片协议解析器
-        # can_parse 不匹配时自动尝试下一个
-        self.protocol = TraceHandler(
-            layer_name="PROTOCOL",
-            logger_func=logger.bind(layer="PROTOCOL").trace,
-            parsers=[MifareClassicParser(), T2TParser()],
-        )
+        # 1. 核心层级注册 (默认关闭)
+        self._layers: dict[str, TraceHandler] = {
+            "DRIVER": TraceHandler(
+                layer_name="DRIVER",
+                logger_func=logger.bind(layer="DRIVER").trace,
+                parsers=[PN532HSUParser()],
+            ),
+            "PROTOCOL": TraceHandler(
+                layer_name="PROTOCOL",
+                logger_func=logger.bind(layer="PROTOCOL").trace,
+                parsers=[MifareClassicParser(), T2TParser()],
+            ),
+        }
+
+        # 2. 快捷访问属性 (兼容旧代码)
+        self.driver = self._layers["DRIVER"]
+        self.protocol = self._layers["PROTOCOL"]
+
+        # 3. 全局级别配置
+        self._min_level = os.getenv("CRFT_TRACE_LEVEL", "INFO").upper()
+
+        # 4. 从环境变量注入初始 Layer 开关
+        self.driver.enabled = self._get_env_bool("CRFT_TRACE_DRIVER", False)
+        self.protocol.enabled = self._get_env_bool("CRFT_TRACE_PROTOCOL", False)
+
+        self._reconfigure()
+
+    def _get_env_bool(self, key, default):
+        val = os.getenv(key, str(default)).lower()
+        return val in ("1", "true", "yes", "on")
+
+    def _filter(self, record):
+        """核心过滤逻辑：Layer 开关优先，普通日志走 Level 过滤"""
+        layer_name = record["extra"].get("layer")
+        
+        # 如果是已知层级，由该层级的 Handler.enabled 决定
+        if layer_name in self._layers:
+            return self._layers[layer_name].enabled
+        
+        # 否则按全局级别过滤
+        try:
+            return record["level"].no >= logger.level(self._min_level).no
+        except ValueError:
+            return record["level"].no >= 20 # 默认 INFO
+
+    def _reconfigure(self):
+        """应用当前配置到全局 logger"""
+        logger.remove()
+        # 必须设为 TRACE 级别，过滤器才能接收到底层 Layer 的日志
+        logger.add(sys.stdout, format=trace_format, filter=self._filter, level="TRACE")
+
+    def set_level(self, level):
+        """设置通用日志输出级别 (INFO, DEBUG, ERROR等)"""
+        self._min_level = level.upper()
+        self._reconfigure()
+
+    def set_layer(self, layer_name, enable=True):
+        """开启或关闭特定层级的详细追踪 (DRIVER/PROTOCOL)"""
+        name = layer_name.upper()
+        if name in self._layers:
+            self._layers[name].enabled = enable
 
     def info(self, msg):    logger.info(msg)
     def error(self, msg):   logger.error(msg)
