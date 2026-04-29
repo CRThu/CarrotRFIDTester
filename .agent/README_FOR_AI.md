@@ -28,6 +28,7 @@
     *   `MifareClassicCard`: 继承自 `BaseCard`，实现完整的 Mifare Classic 指令集。
     *   `Type2Tag`: 继承自 `BaseTag`，实现 NFC Forum Type 2 Tag 标准指令集（如 NTAG 读写）。整合了 NDEF 解析能力 (`get_ndef`)。
     *   `NTAG21x`: 继承自 `Type2Tag`，针对 NXP NTAG21x 系列扩展了版本读取 (`get_version`) 和密码认证 (`auth`) 功能。
+    *   `NTAG22x`: 继承自 `Type2Tag`，针对 NXP NTAG22x DNA 系列扩展了基于 AES-128 的双向互认证 (`auth`)。
     *   **认证逻辑**: `authenticate` 方法使用 PN532 内置的硬件认证功能。
     *   **协议安全**: 目前依赖硬件层处理 Mifare Classic 的三轮认证，加密算法层主要提供离线的算法验证支持。
 
@@ -48,6 +49,7 @@
 *   **职责**: 提供与硬件无关的通用算法或辅助函数（如 CRC 校验、数据格式转换）。
 *   **核心模块**: 
     *   `crc`: 提供 `crc_a` 等标准校验算法。
+    *   `BitOps`: 提供字节流的位操作（如 XOR、ROL 循环左移、ROR 循环右移），命名参考汇编指令。
 *   **设计原则**: 保持模块化，不包含复杂类，仅提供原子函数。
 
 ### 第六层：跟踪控制层 (Trace Layer)

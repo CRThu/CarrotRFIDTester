@@ -45,7 +45,7 @@ class NTAG22x(Type2Tag):
         cmd = bytes([self.CMD_PWD_AUTH_A, 0x00])
         res = self.transceive(cmd)
 
-        if not res or res[0] != CMD_PWD_AUTH_A_RES or len(res) != 17:
+        if not res or res[0] != self.CMD_PWD_AUTH_A_RES or len(res) != 17:
             raise PermissionError(f"Auth Step 1 failed: {res.hex() if res else 'No response'}")
 
         ek_rndb = res[1:]
@@ -64,10 +64,10 @@ class NTAG22x(Type2Tag):
         ek2 = crypto.encrypt(BitOps.xor(rndb_prime, ek1), password)
 
         # 4. 发送 0xAF + ek1 + ek2
-        cmd = bytes([CMD_PWD_AUTH_B]) + ek1 + ek2
+        cmd = bytes([self.CMD_PWD_AUTH_B]) + ek1 + ek2
         res = self.transceive(cmd)
 
-        if not res or res[0] != CMD_PWD_AUTH_B_RES or len(res) != 17:
+        if not res or res[0] != self.CMD_PWD_AUTH_B_RES or len(res) != 17:
             raise PermissionError(f"Auth Step 2 failed: {res.hex() if res else 'No response'}")
 
         ek_rnda_prime = res[1:]
