@@ -2,6 +2,7 @@ import secrets
 from .type2tag import Type2Tag
 from crft.crypto import AES128Crypto
 from crft.utils import BitOps
+from crft.trace import trace
 
 
 class NTAG22x(Type2Tag):
@@ -49,19 +50,29 @@ class NTAG22x(Type2Tag):
             raise PermissionError(f"Auth Step 1 failed: {res.hex() if res else 'No response'}")
 
         ek_rndb = res[1:]
+        trace.debug(f"{'Received ek(RndB)':<25}: {ek_rndb.hex(' ').upper()}")
 
         # 2. 解密 RndB 并生成 RndA
         rndb = crypto.decrypt(ek_rndb, password)
         rndb_prime = BitOps.rol(rndb)
+        trace.debug(f"{'Decrypted RndB':<25}: {rndb.hex(' ').upper()}")
+        trace.debug(f"{'Rotated RndB\'':<25}: {rndb_prime.hex(' ').upper()}")
+
         # 调试用：固定值或伪随机数
         # rnda = bytes.fromhex("00112233445566778899AABBCCDDEEFF")
         rnda = secrets.token_bytes(16)
+        trace.debug(f"{'Generated RndA':<25}: {rnda.hex(' ').upper()}")
 
         # 3. 加密 RndA || RndB' (使用 AES-128 ECB 模拟 CBC)
         # Block 1: ek1 = AES_Encrypt(RndA)
         ek1 = crypto.encrypt(rnda, password)
+        trace.debug(f"{'Encrypted Block 1 (ek1)':<25}: {ek1.hex(' ').upper()}")
+
         # Block 2: ek2 = AES_Encrypt(RndB' ^ ek1)
-        ek2 = crypto.encrypt(BitOps.xor(rndb_prime, ek1), password)
+        xor_in = BitOps.xor(rndb_prime, ek1)
+        trace.debug(f"{'XOR Input for Block 2':<25}: {xor_in.hex(' ').upper()}")
+        ek2 = crypto.encrypt(xor_in, password)
+        trace.debug(f"{'Encrypted Block 2 (ek2)':<25}: {ek2.hex(' ').upper()}")
 
         # 4. 发送 0xAF + ek1 + ek2
         cmd = bytes([self.CMD_PWD_AUTH_B]) + ek1 + ek2
@@ -71,10 +82,15 @@ class NTAG22x(Type2Tag):
             raise PermissionError(f"Auth Step 2 failed: {res.hex() if res else 'No response'}")
 
         ek_rnda_prime = res[1:]
+        trace.debug(f"{'Received ek(RndA\')':<25}: {ek_rnda_prime.hex(' ').upper()}")
 
         # 5. 解密并验证 RndA'
         # 根据 NTAG224 手册，此处解密使用 ECB 模式（或 IV 链重置）
         rnda_prime_from_tag = crypto.decrypt(ek_rnda_prime, password)
+        expected_rnda_prime = BitOps.rol(rnda)
 
-        if rnda_prime_from_tag != BitOps.rol(rnda):
+        trace.debug(f"{'Decrypted RndA\'':<25}: {rnda_prime_from_tag.hex(' ').upper()}")
+        trace.debug(f"{'Expected RndA\'':<25}: {expected_rnda_prime.hex(' ').upper()}")
+
+        if rnda_prime_from_tag != expected_rnda_prime:
             raise PermissionError("Authentication failed: RndA verification failed")
