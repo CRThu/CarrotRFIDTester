@@ -1,5 +1,5 @@
 import time
-from crft.drivers.card_reader import CardReader
+from .card_reader import CardReader
 from crft.trace import trace
 
 class PN532_HSU(CardReader):

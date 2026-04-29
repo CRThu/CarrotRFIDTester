@@ -1,6 +1,6 @@
 import serial
 from crft.trace import trace
-from crft.hardware.base import Transport
+from .base import Transport
 
 class SerialTransport(Transport):
     """基于串口的传输实现"""

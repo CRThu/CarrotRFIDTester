@@ -1,4 +1,4 @@
-from crft.crypto.crypto1 import MifareCrypto1
+from crft.crypto import MifareCrypto1
 
 def test_crypto1_encryption_decryption():
     """

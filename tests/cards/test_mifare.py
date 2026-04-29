@@ -1,5 +1,5 @@
 import pytest
-from crft.cards.mifare_classic import MifareClassicCard
+from crft.cards import MifareClassicCard
 
 @pytest.fixture
 def card(card_reader):

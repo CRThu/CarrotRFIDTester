@@ -1,6 +1,6 @@
 import secrets
-from crft.cards.type2tag import Type2Tag
-from crft.crypto.aes128 import AES128Crypto
+from .type2tag import Type2Tag
+from crft.crypto import AES128Crypto
 from crft.utils import BitOps
 
 

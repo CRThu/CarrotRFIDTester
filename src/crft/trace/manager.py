@@ -1,9 +1,7 @@
 import sys
 from loguru import logger
-from crft.trace.handler import TraceHandler
-from crft.parsers.pn532_hsu_parser import PN532HSUParser
-from crft.parsers.mifare_classic_parser import MifareClassicParser
-from crft.parsers.t2t_parser import T2TParser
+from .handler import TraceHandler
+from crft.parsers import PN532HSUParser, MifareClassicParser, T2TParser
 
 
 def trace_format(record):

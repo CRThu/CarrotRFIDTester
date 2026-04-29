@@ -1,5 +1,5 @@
 from Crypto.Cipher import AES
-from crft.crypto.base_crypto import BaseCrypto
+from .base_crypto import BaseCrypto
 
 
 class AES128Crypto(BaseCrypto):

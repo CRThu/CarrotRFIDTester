@@ -1,4 +1,4 @@
-from crft.crypto.base_crypto import BaseCrypto
+from .base_crypto import BaseCrypto
 
 class MifareCrypto1(BaseCrypto):
     """

@@ -1,5 +1,5 @@
 import pytest
-from crft.cards.ntag21x import NTAG21x
+from crft.cards import NTAG21x
 from crft.trace import trace
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-from crft.parsers.base_parser import BaseParser, ParsedField, ParsedFrame
+from .base_parser import BaseParser, ParsedField, ParsedFrame
 
 # ── 查找表 ────────────────────────────────────────────────────────────────────
 _TFI_DIR = {0xD4: "Host to Device", 0xD5: "Device to Host"}

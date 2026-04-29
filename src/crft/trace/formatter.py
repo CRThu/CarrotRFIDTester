@@ -1,4 +1,4 @@
-from crft.parsers.base_parser import ParsedFrame, ParsedField
+from crft.parsers import ParsedFrame, ParsedField
 
 # 分隔线长度
 _SEP_LEN = 55

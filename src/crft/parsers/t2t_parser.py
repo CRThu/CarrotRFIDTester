@@ -1,5 +1,5 @@
-from crft.parsers.base_parser import BaseParser, ParsedField, ParsedFrame
-from crft.parsers.mifare_classic_parser import _parse_fields
+from .base_parser import BaseParser, ParsedField, ParsedFrame
+from .mifare_classic_parser import _parse_fields
 
 # ACK/NACK 单字节响应
 _RESPONSES = {

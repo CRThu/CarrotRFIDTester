@@ -3,7 +3,7 @@ from loguru import logger
 
 def test_poll_card(card_reader):
     """测试寻卡功能"""
-    tag_info = card_reader.poll_tag()
+    tag_info = card_reader.find()
     
     assert tag_info is not None, "未发现卡片"
     

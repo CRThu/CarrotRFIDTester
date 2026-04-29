@@ -1,4 +1,4 @@
-from crft.parsers.base_parser import BaseParser, ParsedField, ParsedFrame
+from .base_parser import BaseParser, ParsedField, ParsedFrame
 
 # ── 字段规格: (name, byte_length, desc_fn(raw_bytes) -> str) ─────────────────
 # None 长度表示"剩余所有字节"

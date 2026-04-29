@@ -1,4 +1,4 @@
-from crft.cards.base_card import BaseCard
+from .base_card import BaseCard
 
 
 class MifareClassicCard(BaseCard):

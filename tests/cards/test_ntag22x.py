@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from crft.cards.ntag22x import NTAG22x
+from crft.cards import NTAG22x
 
 def test_ntag22x_auth_mock():
     """

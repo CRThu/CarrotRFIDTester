@@ -1,6 +1,6 @@
 from typing import Callable
-from crft.parsers.base_parser import BaseParser
-from crft.trace.formatter import TraceFormatter
+from crft.parsers import BaseParser
+from .formatter import TraceFormatter
 
 
 class TraceHandler:

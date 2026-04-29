@@ -1,6 +1,6 @@
 import argparse
 import sys
-from crft.crypto.aes128 import AES128Crypto
+from crft.crypto import AES128Crypto
 
 def main():
     parser = argparse.ArgumentParser(description="AES-128 CLI Tool")

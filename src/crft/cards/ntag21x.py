@@ -1,4 +1,4 @@
-from crft.cards.type2tag import Type2Tag
+from .type2tag import Type2Tag
 
 
 class NTAG21x(Type2Tag):

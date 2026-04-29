@@ -1,4 +1,4 @@
-from crft.cards.base_tag import BaseTag
+from .base_tag import BaseTag
 
 
 class Type2Tag(BaseTag):

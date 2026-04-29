@@ -1,5 +1,5 @@
 import pytest
-from crft.crypto.aes128 import AES128Crypto
+from crft.crypto import AES128Crypto
 
 def test_aes128_ecb_vectors():
     """
