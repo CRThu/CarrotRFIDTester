@@ -45,9 +45,12 @@ class CardReader(ABC):
         """
 
     @abstractmethod
-    def transceive(self, data: bytes) -> bytes:
+    def transceive(self, data: bytes, last_tx_bits: int = 0) -> bytes:
         """
         与卡片进行数据透传（如 PN532 的 InCommunicateThru）。
+        :param data: 要发送的数据
+        :param last_tx_bits: 最后一个字节实际发送的位数，默认 0（整字节）；
+                             非 0 时驱动层需配置硬件寄存器，发送后自动复原。
         返回卡片返回的原始数据块，如果失败则返回 None。
         """
         pass

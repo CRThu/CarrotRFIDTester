@@ -8,6 +8,9 @@ class PN532_HSU(CardReader):
         # 初始化传输层
         self.transport = transport
         self.trace = trace_mgr
+        # 最近一次 transceive 收到数据后 CIU_Control.RxLastBits[2:0] 的值
+        # 0 表示最后一个字节全部有效（即整字节），非 0 表示最后字节有效位数
+        self.last_rx_bits = 0
 
     # --- 私有辅助方法 (协议具体实现) ---
     def _send_frame(self, data: bytes):
@@ -76,6 +79,20 @@ class PN532_HSU(CardReader):
         cmd = bytes([0x08, (address >> 8) & 0xFF, address & 0xFF, value & 0xFF])
         self._req(cmd)
 
+    def _modify_reg(self, address: int, mask: int, value: int):
+        """
+        读-改-写寄存器指定位域。
+        :param address: 16 位寄存器地址
+        :param mask:    要修改的位掩码（置 1 的位将被写入）
+        :param value:   期望写入的值（仅 mask 对应的位生效）
+        """
+        current = self._read_reg(address)
+        if current is None:
+            self.trace.error(f"_modify_reg 读取寄存器 0x{address:04X} 失败")
+            return
+        new_val = (current & ~mask) | (value & mask)
+        self._write_reg(address, new_val)
+
     # --- CardReader 接口实现 ---
     def connect(self):
         wake_cmd = b'\x55\x55\x00\x00\x00\x00\x00\x00\x00\x00\xFF\x03\xFD\xD4\x14\x01\x17\x00'
@@ -116,28 +133,9 @@ class PN532_HSU(CardReader):
         :param tx_enabled: 是否开启发送 CRC
         :param rx_enabled: 是否开启接收 CRC
         """
-        # 读取 TxMode (0x6302) 和 RxMode (0x6303)
-        val_tx = self._read_reg(0x6302)
-        val_rx = self._read_reg(0x6303)
-
-        if val_tx is None or val_rx is None:
-            self.trace.error("无法读取 CRC 寄存器状态")
-            return
-
-        # 修改第 7 位 (TxCRCEn / RxCRCEn)
-        if tx_enabled:
-            val_tx |= 0x80
-        else:
-            val_tx &= 0x7F
-
-        if rx_enabled:
-            val_rx |= 0x80
-        else:
-            val_rx &= 0x7F
-
-        # 写回寄存器
-        self._write_reg(0x6302, val_tx)
-        self._write_reg(0x6303, val_rx)
+        # 第 7 位为 TxCRCEn / RxCRCEn，使用 _modify_reg 读-改-写
+        self._modify_reg(0x6302, 0x80, 0x80 if tx_enabled else 0x00)
+        self._modify_reg(0x6303, 0x80, 0x80 if rx_enabled else 0x00)
         # self.trace.debug(f"PN532 CRC 配置: TX={tx_enabled}, RX={rx_enabled}")
 
     def exchange(self, data: bytes) -> bytes:
@@ -156,13 +154,38 @@ class PN532_HSU(CardReader):
                 self.trace.warning(f"指令交换返回错误状态: 0x{res[1]:02X}")
         return None
 
-    def transceive(self, data: bytes) -> bytes:
-        """封装 PN532 的 InCommunicateThru 指令发送给卡片"""
+    def transceive(self, data: bytes, last_tx_bits: int = 0) -> bytes:
+        """
+        封装 PN532 的 InCommunicateThru 指令发送给卡片。
+        :param data:         要发送的数据
+        :param last_tx_bits: 最后字节的有效位数，默认 0（整字节）；
+                             非 0 时写 CIU_BitFraming.TxLastBits[2:0]，发送后清零复原。
+        完成后 self.last_rx_bits 保存 CIU_Control.RxLastBits[2:0]（0 表示整字节有效）。
+        """
         self.trace.protocol(tx=data)
+
+        # CIU_BitFraming (0x633D) bit[2:0] = TxLastBits
+        # 0 = 发送完整字节；非 0 = 最后字节仅发送指定位数
+        if last_tx_bits != 0:
+            self._modify_reg(0x633D, 0x07, last_tx_bits & 0x07)
+            self.trace.debug(f"{'LAST_TX_BITS':<12}: {last_tx_bits}")
+
         # 0x42 (InCommunicateThru)
         full_cmd = b'\x42' + data
         res = self._req(full_cmd)
-        
+
+        # 发送后复原 TxLastBits = 0（整字节模式）
+        if last_tx_bits != 0:
+            self._modify_reg(0x633D, 0x07, 0x00)
+
+        # 读取 CIU_Control (0x633C) bit[2:0] = RxLastBits
+        # 0 表示最后字节全部有效，非 0 表示最后字节有效位数
+        ciu_ctrl = self._read_reg(0x633C)
+        self.last_rx_bits = (ciu_ctrl & 0x07) if ciu_ctrl is not None else 0
+
+        if self.last_rx_bits != 0:
+            self.trace.debug(f"{'LAST_RX_BITS':<12}: {self.last_rx_bits}")
+
         # 响应格式: 0x43 (Response), Status, [Data]
         if res and len(res) >= 2 and res[0] == 0x43:
             if res[1] == 0x00:

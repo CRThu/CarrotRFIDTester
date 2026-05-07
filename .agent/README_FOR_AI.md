@@ -16,7 +16,14 @@
 *   **职责**: 实现特定芯片的协议封装（如 PN532 的 NXP 标准帧格式）。
 *   **核心类**: `PN532_HSU`。
 *   **逻辑**: 包含 ACK 处理、唤醒序列（Wakeup）、以及读取/写入数据帧。
-*   **模式**: 采用“请求-响应模式 (Request-Response Pattern)”，通过私有方法 `_req` 统一调度 `发送 -> 读取 -> 基础校验` 周期，确保指令执行的原子性与健壮性。
+*   **模式**: 采用"请求-响应模式 (Request-Response Pattern)"，通过私有方法 `_req` 统一调度 `发送 -> 读取 -> 基础校验` 周期，确保指令执行的原子性与健壮性。
+*   **寄存器辅助方法**:
+    *   `_read_reg(address)`: 读取 16 位地址的寄存器值（PN532 指令 0x06）。
+    *   `_write_reg(address, value)`: 写入寄存器（PN532 指令 0x08）。
+    *   `_modify_reg(address, mask, value)`: 读-改-写，只修改 `mask` 指定的位域，其余位保持不变。`set_crc` 等方法均统一使用此接口。
+*   **位帧收发支持**:
+    *   `transceive(data, last_tx_bits=8)`: 在标准整字节发送基础上支持位帧发送。`last_tx_bits` 非 8 时，发送前写 `CIU_BitFraming`（`0x633D`）的 `TxLastBits[2:0]`，发送完成后清零复原，保证不影响后续整字节通信。
+    *   `self.last_rx_bits`: 实例属性，每次 `transceive` 完成后自动更新为 `CIU_Control`（`0x633C`）的 `RxLastBits[2:0]`，供上层协议判断最后接收字节的有效位数（0 = 全字节有效）。
 
 ### 第三层：卡片逻辑层 (Card Layer)
 *   **目录**: `src/crft/cards/`
