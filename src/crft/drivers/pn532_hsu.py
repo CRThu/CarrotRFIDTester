@@ -4,6 +4,36 @@ from crft.trace import trace
 
 class PN532_HSU(CardReader):
     """PN532 HSU 协议驱动实现"""
+    # PN532 错误码对照表
+    PN532_ERRORS = {
+        0x01: "超时，目标未响应 (Time Out)",
+        0x02: "CIU 检测到 CRC 错误 (CRC Error)",
+        0x03: "CIU 检测到奇偶校验错误 (Parity Error)",
+        0x04: "防冲突/选择操作期间位计数错误 (Bit Count Error)",
+        0x05: "Mifare 操作期间帧错误 (Framing Error)",
+        0x06: "106 kbps 逐位防冲突期间检测到异常位冲突 (Bit-collision Error)",
+        0x07: "通信缓冲区大小不足 (Buffer Insufficient)",
+        0x09: "CIU 检测到 RF 缓冲区溢出 (RF Buffer Overflow)",
+        0x0A: "主动通信模式下，对方未及时开启 RF 场 (RF Field Error)",
+        0x0B: "RF 协议错误 (RF Protocol Error)",
+        0x0D: "温度错误：检测到过热，天线驱动已关闭 (Temperature Error)",
+        0x0E: "内部缓冲区溢出 (Internal Buffer Overflow)",
+        0x10: "参数无效（范围、格式等） (Invalid Parameter)",
+        0x12: "DEP 协议：PN532 不支持接收到的命令 (Command Not Supported)",
+        0x13: "数据格式与规范不匹配 (Data Format Mismatch)",
+        0x14: "Mifare：认证错误 (Authentication Error)",
+        0x23: "ISO14443-3：UID 校验位错误 (UID Check Byte Error)",
+        0x25: "DEP 协议：无效的设备状态 (Invalid Device State)",
+        0x26: "当前配置下不允许该操作 (Operation Not Allowed)",
+        0x27: "由于当前上下文，该命令不可接受 (Command Not Acceptable)",
+        0x29: "配置为目标的 PN532 已被其发起者释放 (Target Released)",
+        0x2A: "卡片 ID 不匹配（预期的卡片已被更换） (ID Mismatch)",
+        0x2B: "先前激活的卡片已消失 (Card Disappeared)",
+        0x2C: "发起者与目标的 NFCID3 不匹配 (NFCID3 Mismatch)",
+        0x2D: "检测到过流事件 (Over-current Event)",
+        0x2E: "DEP 帧中缺失 NAD (NAD Missing)",
+    }
+
     def __init__(self, transport, trace_mgr=trace):
         # 初始化传输层
         self.transport = transport
@@ -151,7 +181,8 @@ class PN532_HSU(CardReader):
                 self.trace.protocol(rx=res[2:])
                 return res[2:]
             else:
-                self.trace.warning(f"指令交换返回错误状态: 0x{res[1]:02X}")
+                err_msg = self.PN532_ERRORS.get(res[1], "未知错误")
+                self.trace.warning(f"指令交换返回错误状态: 0x{res[1]:02X} ({err_msg})")
         return None
 
     def transceive(self, data: bytes, last_tx_bits: int = 0) -> bytes:
@@ -192,7 +223,8 @@ class PN532_HSU(CardReader):
                 self.trace.protocol(rx=res[2:])
                 return res[2:]
             else:
-                self.trace.warning(f"InCommunicateThru 返回错误状态: 0x{res[1]:02X}")
+                err_msg = self.PN532_ERRORS.get(res[1], "未知错误")
+                self.trace.warning(f"InCommunicateThru 返回错误状态: 0x{res[1]:02X} ({err_msg})")
                 self.trace.protocol(rx=res[2:])
                 return res[2:]
         return None
