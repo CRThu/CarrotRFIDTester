@@ -4,6 +4,11 @@ class BitOps:
     """
 
     @staticmethod
+    def inv(data: bytes) -> bytes:
+        """ NOT: 字节数组取反 """
+        return bytes(~x & 0xFF for x in data)
+
+    @staticmethod
     def xor(a: bytes, b: bytes) -> bytes:
         """ XOR: 字节数组异或 """
         return bytes(x ^ y for x, y in zip(a, b))
