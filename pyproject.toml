@@ -1,11 +1,10 @@
 [project]
 name = "CarrotRFIDTester"
-version = "0.0.31"
-description = "A RFID/NFC autpmation testing framework for cards and readers."
+version = "0.0.32"
+description = "A RFID/NFC automation testing framework for cards and readers."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "bump-my-version>=1.3.0",
     "loguru>=0.7.3",
     "pycryptodome>=3.23.0",
     "pyserial>=3.5",
@@ -30,7 +29,7 @@ testpaths = ["tests"]
 package = true
 
 [tool.bumpversion]
-current_version = "0.0.31"
+current_version = "0.0.32"
 allow_dirty = true
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
